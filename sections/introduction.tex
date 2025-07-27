@@ -1,0 +1,35 @@
+Machine learning (ML), a core subfield of artificial intelligence (AI), enables systems to learn from data, identify patterns, and make decisions with minimal human intervention. It has revolutionized various sectors including healthcare, finance, and autonomous driving by providing solutions that are both efficient and scalable \cite{Jordan2015Machine, Goodfellow2016Deep}. The fundamental premise of machine learning is to develop algorithms that can receive input data and use statistical analysis to predict an output while updating outputs as new data becomes available.
+
+\subsection*{Foundations of Machine Learning}
+Machine learning models are broadly classified into supervised, unsupervised, and reinforcement learning based on the nature of the learning signal or feedback available to a learning system \cite{Sutton2018Reinforcement}. 
+
+\textbf{Supervised learning} involves training a model on a labeled dataset, which means that each example in the training dataset is paired with an output label. A common example is a classification task, where the model needs to learn to assign a label to an input value. The primary goal here is to minimize the error between the predicted and actual outputs. The training process involves optimization techniques such as gradient descent, which adjusts the model parameters to minimize a loss function. The typical supervised learning process can be mathematically represented as:
+\begin{equation}
+    \hat{y} = f(x; \theta)
+\end{equation}
+where \( x \) represents the input data, \( \theta \) denotes the parameters of the model, and \( \hat{y} \) is the predicted output. The function \( f \) symbolizes the learning algorithm applied to the input.
+
+\textbf{Unsupervised learning}, in contrast, deals with unlabeled data. The goal here is to infer the natural structure present within a set of data points. Techniques such as clustering and dimensionality reduction are prevalent under this category. 
+
+\textbf{Reinforcement learning} is modeled as a decision-making process where an agent learns to achieve a goal in an uncertain, potentially complex environment. In reinforcement learning, an agent learns to perform actions so as to maximize some notion of cumulative reward \cite{Sutton2018Reinforcement}.
+
+\subsection*{Deep Neural Networks}
+Deep Learning, a subset of machine learning, utilizes layers of neural networks to extract higher-level features from the raw input. It has been pivotal in achieving remarkable successes in many challenging domains like natural language processing, image recognition, and speech recognition \cite{LeCun2015Deep, Goodfellow2016Deep}.
+
+Neural networks consist of neurons arranged in layers. A simple deep neural network can be visualized as:
+\begin{figure}[htbp]
+    \centering
+    % TODO: Add an image of a simple deep neural network
+    \caption{Example of a simple deep neural network architecture}
+    \label{fig:dnn}
+\end{figure}
+
+The depth of these networks is a significant factor in their ability to perform complex function approximations. The basic computation unit in a neural network is the neuron, and the basic computation it performs can be represented mathematically as:
+\begin{equation}
+    y = \sigma(\sum_{i=1}^n w_ix_i + b)
+\end{equation}
+where \( x_i \) are inputs, \( w_i \) are weights, \( b \) is a bias, and \( \sigma \) is a nonlinear activation function, such as the sigmoid or ReLU function.
+
+One of the powerful aspects of deep learning is its ability to perform "end-to-end learning" – that is, learning from the raw data to the final categories or decisions directly, with minimal need for manual feature extraction \cite{LeCun2015Deep}.
+
+In summary, the field of machine learning and its extension into deep learning represent fundamental tools in the development of intelligent systems. Their applications span across multiple sectors, catalyzing advancements and driving innovation.

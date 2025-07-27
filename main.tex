@@ -1,0 +1,66 @@
+\documentclass[11pt,a4paper]{article}
+
+% Essential packages (compatible with both pdflatex and xelatex)
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{cite}
+
+% Persian support conditional (simplified)
+\newif\ifpersian
+\persianfalse % Set to \persiantrue for Persian documents
+
+\ifpersian
+    % Persian packages (optional, only if available)
+    \usepackage{polyglossia}
+    \setmainlanguage{persian}
+    \setotherlanguage{english}
+\else
+    \usepackage[english]{babel}
+\fi
+
+% Document metadata
+\title{ModuTex v1.0 Demo Document}
+\author{ModuTex Team}
+\date{\today}
+
+% Hyperref setup
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    citecolor=red,
+}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\newpage
+
+% Abstract
+\section{Abstract}
+\input{sections/abstract}
+
+% Introduction
+\section{Introduction}  
+\input{sections/introduction}
+
+% Methodology
+\section{Methodology}
+\input{sections/methodology}
+
+% Conclusion
+\section{Conclusion}
+\input{sections/conclusion}
+
+% Bibliography
+\newpage
+\bibliographystyle{ieeetr}
+\bibliography{bib/references,bib/local_manual}
+
+\end{document} 
