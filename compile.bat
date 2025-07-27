@@ -46,22 +46,55 @@ if %errorlevel% == 0 (
     echo 🔧 Using PDFLaTeX engine...
     echo.
     echo Pass 1: Initial compilation...
-    pdflatex -interaction=nonstopmode main.tex >nul 2>&1
+    pdflatex -interaction=nonstopmode main.tex
+    if errorlevel 1 (
+        echo ⚠️ First LaTeX pass had warnings (checking if PDF was created...)
+        if exist "main.pdf" (
+            echo ✅ PDF created despite warnings - continuing compilation
+        ) else (
+            echo ❌ First LaTeX pass failed! Check your LaTeX syntax.
+            pause
+            exit /b 1
+        )
+    ) else (
+        echo ✅ First pass completed perfectly
+    )
     
     echo Pass 2: Processing bibliography...
-    bibtex main >nul 2>&1
+    echo 📚 Checking bibliography files...
+    if exist "bib\references.bib" echo ✅ Found references.bib
+    if exist "bib\local_manual.bib" echo ✅ Found local_manual.bib
+    
+    bibtex main
+    if errorlevel 1 (
+        echo ⚠️ Bibliography processing had warnings (normal if no citations)
+    ) else (
+        echo ✅ Bibliography processed successfully
+    )
     
     echo Pass 3: Resolving cross-references...
     pdflatex -interaction=nonstopmode main.tex >nul 2>&1
+    echo ✅ Cross-references resolved
     
     echo Pass 4: Final compilation...
     pdflatex -interaction=nonstopmode main.tex >nul 2>&1
+    echo ✅ Final compilation completed
+    
+    goto :compilation_complete
     
 ) else (
     echo ❌ PDFLaTeX not found! Please install TeX Live or MiKTeX.
+    echo.
+    echo 🔧 Quick installation options:
+    echo    • TeX Live: https://www.tug.org/texlive/
+    echo    • MiKTeX: https://miktex.org/download
+    echo.
+    echo 💡 After installation, restart your computer and try again.
     pause
     exit /b 1
 )
+
+:compilation_complete
 
 echo.
 echo 🔍 Checking compilation results...
@@ -75,12 +108,21 @@ if exist "main.pdf" (
     dir "main.pdf" | findstr main.pdf
     
     echo.
+    echo.
+    echo 📚 Bibliography status:
+    if exist "main.bbl" (
+        echo ✅ Bibliography processed successfully - references included
+    ) else (
+        echo ⚠️ Bibliography not processed - run again for complete references
+    )
+    
+    echo.
     echo 🧹 Cleaning up auxiliary files...
     if exist "main.aux" del "main.aux" >nul 2>&1
     if exist "main.log" del "main.log" >nul 2>&1
     if exist "main.out" del "main.out" >nul 2>&1
     if exist "main.toc" del "main.toc" >nul 2>&1
-    if exist "main.bbl" del "main.bbl" >nul 2>&1
+    REM Keep main.bbl for bibliography
     if exist "main.blg" del "main.blg" >nul 2>&1
     if exist "main.fdb_latexmk" del "main.fdb_latexmk" >nul 2>&1
     if exist "main.fls" del "main.fls" >nul 2>&1

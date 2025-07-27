@@ -767,7 +767,7 @@ Ready to create amazing LaTeX documents! 🚀✨
 
 
 class BaseDialog:
-    """Beautiful base class for all dialogs"""
+    """Beautiful base class for all dialogs with scrolling support"""
     def __init__(self, parent, main_app):
         self.parent = parent
         self.main_app = main_app
@@ -786,20 +786,113 @@ class BaseDialog:
         self.dialog.grab_set()
         self.dialog.resizable(True, True)
         
+        # Set reasonable minimum size
+        self.dialog.minsize(500, 400)
+        
+        # Configure grid for responsive layout
+        self.dialog.grid_columnconfigure(0, weight=1)
+        self.dialog.grid_rowconfigure(0, weight=1)
+        
+        # Create main scrollable container
+        self.create_scrollable_container()
+        
         # Center the dialog
         self.center_dialog()
+        
+    def create_scrollable_container(self):
+        """Create scrollable main container for dialog content"""
+        # Main frame that will contain everything
+        self.main_frame = tk.Frame(self.dialog, bg=self.colors['background'])
+        self.main_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        self.main_frame.grid_columnconfigure(0, weight=1)
+        self.main_frame.grid_rowconfigure(0, weight=1)
+        
+        # Create canvas and scrollbar for scrolling
+        self.canvas = tk.Canvas(
+            self.main_frame,
+            bg=self.colors['background'],
+            highlightthickness=0,
+            bd=0
+        )
+        self.scrollbar = ttk.Scrollbar(
+            self.main_frame,
+            orient="vertical",
+            command=self.canvas.yview
+        )
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+        
+        # Pack canvas and scrollbar
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+        self.scrollbar.grid(row=0, column=1, sticky="ns")
+        
+        # Create scrollable frame inside canvas
+        self.scrollable_frame = tk.Frame(self.canvas, bg=self.colors['background'])
+        self.canvas_window = self.canvas.create_window(
+            0, 0, anchor="nw", window=self.scrollable_frame
+        )
+        
+        # Configure scrolling
+        self.scrollable_frame.bind("<Configure>", self._on_frame_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+        
+        # Enable mouse wheel scrolling
+        self._bind_dialog_mousewheel()
+        
+        # Configure grid for content
+        self.scrollable_frame.grid_columnconfigure(0, weight=1)
+        
+    def _on_frame_configure(self, event):
+        """Update scroll region when frame size changes"""
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        
+    def _on_canvas_configure(self, event):
+        """Update frame width when canvas width changes"""
+        canvas_width = event.width
+        self.canvas.itemconfig(self.canvas_window, width=canvas_width-30)  # Account for scrollbar
+        
+    def _bind_dialog_mousewheel(self):
+        """Bind mouse wheel events for dialog scrolling"""
+        def _on_mousewheel(event):
+            if self.canvas.winfo_exists():
+                self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            return "break"
+        
+        # Bind mousewheel to dialog and all child widgets
+        self.dialog.bind("<MouseWheel>", _on_mousewheel)
+        self.canvas.bind("<MouseWheel>", _on_mousewheel)
+        self.scrollable_frame.bind("<MouseWheel>", _on_mousewheel)
+        
+        # Linux mouse wheel support
+        self.dialog.bind("<Button-4>", lambda e: self.canvas.yview_scroll(-1, "units"))
+        self.dialog.bind("<Button-5>", lambda e: self.canvas.yview_scroll(1, "units"))
         
     def center_dialog(self):
         """Center dialog on parent window"""
         self.dialog.update_idletasks()
-        x = self.parent.winfo_x() + (self.parent.winfo_width() // 2) - (self.dialog.winfo_width() // 2)
-        y = self.parent.winfo_y() + (self.parent.winfo_height() // 2) - (self.dialog.winfo_height() // 2)
+        
+        # Get screen dimensions
+        screen_width = self.dialog.winfo_screenwidth()
+        screen_height = self.dialog.winfo_screenheight()
+        
+        # Get dialog dimensions
+        dialog_width = self.dialog.winfo_width()
+        dialog_height = self.dialog.winfo_height()
+        
+        # Calculate center position
+        x = self.parent.winfo_x() + (self.parent.winfo_width() // 2) - (dialog_width // 2)
+        y = self.parent.winfo_y() + (self.parent.winfo_height() // 2) - (dialog_height // 2)
+        
+        # Ensure dialog fits on screen
+        x = max(0, min(x, screen_width - dialog_width))
+        y = max(0, min(y, screen_height - dialog_height))
+        
         self.dialog.geometry(f"+{x}+{y}")
         
     def create_title(self, title, subtitle=""):
-        """Create beautiful dialog title"""
-        title_frame = tk.Frame(self.dialog, bg=self.colors['surface'], relief='raised', bd=2)
-        title_frame.pack(fill=tk.X, padx=20, pady=20)
+        """Create beautiful dialog title in scrollable area"""
+        title_frame = tk.Frame(self.scrollable_frame, bg=self.colors['surface'], relief='raised', bd=2)
+        title_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
+        title_frame.grid_columnconfigure(0, weight=1)
         
         title_label = tk.Label(
             title_frame,
@@ -808,7 +901,7 @@ class BaseDialog:
             fg=self.colors['primary'],
             bg=self.colors['surface']
         )
-        title_label.pack(pady=(15, 5))
+        title_label.grid(row=0, column=0, pady=(15, 5))
         
         if subtitle:
             subtitle_label = tk.Label(
@@ -818,7 +911,11 @@ class BaseDialog:
                 fg=self.colors['text_light'],
                 bg=self.colors['surface']
             )
-            subtitle_label.pack(pady=(0, 15))
+            subtitle_label.grid(row=1, column=0, pady=(0, 15))
+    
+    def get_content_frame(self):
+        """Get the frame where dialog content should be placed"""
+        return self.scrollable_frame
 
 
 class EditSectionDialog(BaseDialog):
@@ -826,19 +923,21 @@ class EditSectionDialog(BaseDialog):
     def __init__(self, parent, main_app):
         super().__init__(parent, main_app)
         self.dialog.title("Edit Section with AI")
-        self.dialog.geometry("600x500")
+        self.dialog.geometry("650x600")
         self.create_widgets()
         
     def create_widgets(self):
         self.create_title("📝 Edit Section with AI", "Improve your content with AI assistance")
         
-        # Main content frame
-        content_frame = tk.Frame(self.dialog, bg=self.colors['background'])
-        content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
+        # Main content frame - use scrollable area
+        content_frame = tk.Frame(self.get_content_frame(), bg=self.colors['background'])
+        content_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+        content_frame.grid_columnconfigure(0, weight=1)
         
         # Section selection with beautiful styling
         section_frame = tk.Frame(content_frame, bg=self.colors['surface'], relief='raised', bd=1)
-        section_frame.pack(fill=tk.X, pady=(0, 15))
+        section_frame.grid(row=0, column=0, sticky="ew", pady=(0, 15))
+        section_frame.grid_columnconfigure(0, weight=1)
         
         tk.Label(
             section_frame,
@@ -846,7 +945,7 @@ class EditSectionDialog(BaseDialog):
             font=('Segoe UI', 12, 'bold'),
             fg=self.colors['text'],
             bg=self.colors['surface']
-        ).pack(anchor="w", padx=15, pady=(15, 5))
+        ).grid(row=0, column=0, sticky="w", padx=15, pady=(15, 5))
         
         # Get available sections
         sections_dir = Path("sections")
@@ -862,11 +961,14 @@ class EditSectionDialog(BaseDialog):
             state="readonly",
             font=('Segoe UI', 11)
         )
-        self.section_combo.pack(fill=tk.X, padx=15, pady=(0, 15))
+        self.section_combo.grid(row=1, column=0, sticky="ew", padx=15, pady=(0, 15))
         
         # Instructions with beautiful styling
         instructions_frame = tk.Frame(content_frame, bg=self.colors['surface'], relief='raised', bd=1)
-        instructions_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
+        instructions_frame.grid(row=1, column=0, sticky="nsew", pady=(0, 15))
+        instructions_frame.grid_columnconfigure(0, weight=1)
+        instructions_frame.grid_rowconfigure(2, weight=1)
+        content_frame.grid_rowconfigure(1, weight=1)
         
         tk.Label(
             instructions_frame,
@@ -874,7 +976,7 @@ class EditSectionDialog(BaseDialog):
             font=('Segoe UI', 12, 'bold'),
             fg=self.colors['text'],
             bg=self.colors['surface']
-        ).pack(anchor="w", padx=15, pady=(15, 5))
+        ).grid(row=0, column=0, sticky="w", padx=15, pady=(15, 5))
         
         # Example text
         example_text = "Examples: 'Add mathematical equations', 'Include recent research', 'Improve academic tone'"
@@ -884,21 +986,22 @@ class EditSectionDialog(BaseDialog):
             font=('Segoe UI', 9, 'italic'),
             fg=self.colors['text_light'],
             bg=self.colors['surface']
-        ).pack(anchor="w", padx=15, pady=(0, 10))
+        ).grid(row=1, column=0, sticky="w", padx=15, pady=(0, 10))
         
         self.instructions_text = scrolledtext.ScrolledText(
             instructions_frame,
-            height=8,
+            height=10,
             wrap=tk.WORD,
             font=('Segoe UI', 11),
             bg=self.colors['accent'],
             fg=self.colors['text']
         )
-        self.instructions_text.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
+        self.instructions_text.grid(row=2, column=0, sticky="nsew", padx=15, pady=(0, 15))
         
         # Buttons with beautiful styling
         button_frame = tk.Frame(content_frame, bg=self.colors['background'])
-        button_frame.pack(fill=tk.X)
+        button_frame.grid(row=2, column=0, sticky="ew", pady=(10, 0))
+        button_frame.grid_columnconfigure(1, weight=1)
         
         improve_btn = tk.Button(
             button_frame,
@@ -913,7 +1016,7 @@ class EditSectionDialog(BaseDialog):
             pady=10,
             cursor='hand2'
         )
-        improve_btn.pack(side=tk.LEFT, padx=(0, 10))
+        improve_btn.grid(row=0, column=0, padx=(0, 10), pady=10)
         
         cancel_btn = tk.Button(
             button_frame,
@@ -928,7 +1031,7 @@ class EditSectionDialog(BaseDialog):
             pady=10,
             cursor='hand2'
         )
-        cancel_btn.pack(side=tk.RIGHT)
+        cancel_btn.grid(row=0, column=2, pady=10)
         
     def edit_section(self):
         section_name = self.section_var.get()
@@ -952,19 +1055,21 @@ class GenerateSectionDialog(BaseDialog):
     def __init__(self, parent, main_app):
         super().__init__(parent, main_app)
         self.dialog.title("Generate New Section")
-        self.dialog.geometry("600x550")
+        self.dialog.geometry("650x650")
         self.create_widgets()
         
     def create_widgets(self):
         self.create_title("✨ Generate New Section", "Create professional content with AI")
         
-        # Main content frame
-        content_frame = tk.Frame(self.dialog, bg=self.colors['background'])
-        content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
+        # Main content frame - use scrollable area
+        content_frame = tk.Frame(self.get_content_frame(), bg=self.colors['background'])
+        content_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+        content_frame.grid_columnconfigure(0, weight=1)
         
         # Section name with beautiful styling
         name_frame = tk.Frame(content_frame, bg=self.colors['surface'], relief='raised', bd=1)
-        name_frame.pack(fill=tk.X, pady=(0, 15))
+        name_frame.grid(row=0, column=0, sticky="ew", pady=(0, 15))
+        name_frame.grid_columnconfigure(0, weight=1)
         
         tk.Label(
             name_frame,
@@ -972,7 +1077,7 @@ class GenerateSectionDialog(BaseDialog):
             font=('Segoe UI', 12, 'bold'),
             fg=self.colors['text'],
             bg=self.colors['surface']
-        ).pack(anchor="w", padx=15, pady=(15, 5))
+        ).grid(row=0, column=0, sticky="w", padx=15, pady=(15, 5))
         
         self.name_entry = tk.Entry(
             name_frame,
@@ -982,13 +1087,16 @@ class GenerateSectionDialog(BaseDialog):
             relief='flat',
             bd=5
         )
-        self.name_entry.pack(fill=tk.X, padx=15, pady=(0, 15))
+        self.name_entry.grid(row=1, column=0, sticky="ew", padx=15, pady=(0, 15))
         self.name_entry.insert(0, "e.g., introduction, methodology, results")
         self.name_entry.bind('<FocusIn>', self.clear_placeholder)
         
         # Content description with beautiful styling
         content_frame_inner = tk.Frame(content_frame, bg=self.colors['surface'], relief='raised', bd=1)
-        content_frame_inner.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
+        content_frame_inner.grid(row=1, column=0, sticky="nsew", pady=(0, 15))
+        content_frame_inner.grid_columnconfigure(0, weight=1)
+        content_frame_inner.grid_rowconfigure(2, weight=1)
+        content_frame.grid_rowconfigure(1, weight=1)
         
         tk.Label(
             content_frame_inner,
@@ -996,7 +1104,7 @@ class GenerateSectionDialog(BaseDialog):
             font=('Segoe UI', 12, 'bold'),
             fg=self.colors['text'],
             bg=self.colors['surface']
-        ).pack(anchor="w", padx=15, pady=(15, 5))
+        ).grid(row=0, column=0, sticky="w", padx=15, pady=(15, 5))
         
         example_text = "Describe what you want in this section. Be specific for better results!"
         tk.Label(
@@ -1005,21 +1113,22 @@ class GenerateSectionDialog(BaseDialog):
             font=('Segoe UI', 9, 'italic'),
             fg=self.colors['text_light'],
             bg=self.colors['surface']
-        ).pack(anchor="w", padx=15, pady=(0, 10))
+        ).grid(row=1, column=0, sticky="w", padx=15, pady=(0, 10))
         
         self.content_text = scrolledtext.ScrolledText(
             content_frame_inner,
-            height=10,
+            height=12,
             wrap=tk.WORD,
             font=('Segoe UI', 11),
             bg=self.colors['accent'],
             fg=self.colors['text']
         )
-        self.content_text.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
+        self.content_text.grid(row=2, column=0, sticky="nsew", padx=15, pady=(0, 15))
         
         # Buttons
         button_frame = tk.Frame(content_frame, bg=self.colors['background'])
-        button_frame.pack(fill=tk.X)
+        button_frame.grid(row=2, column=0, sticky="ew", pady=(10, 0))
+        button_frame.grid_columnconfigure(1, weight=1)
         
         generate_btn = tk.Button(
             button_frame,
@@ -1034,7 +1143,7 @@ class GenerateSectionDialog(BaseDialog):
             pady=10,
             cursor='hand2'
         )
-        generate_btn.pack(side=tk.LEFT, padx=(0, 10))
+        generate_btn.grid(row=0, column=0, padx=(0, 10), pady=10)
         
         cancel_btn = tk.Button(
             button_frame,
@@ -1049,7 +1158,7 @@ class GenerateSectionDialog(BaseDialog):
             pady=10,
             cursor='hand2'
         )
-        cancel_btn.pack(side=tk.RIGHT)
+        cancel_btn.grid(row=0, column=2, pady=10)
         
     def clear_placeholder(self, event):
         if self.name_entry.get().startswith("e.g.,"):
@@ -1083,19 +1192,23 @@ class ConvertTextDialog(BaseDialog):
     def __init__(self, parent, main_app):
         super().__init__(parent, main_app)
         self.dialog.title("Convert Text to LaTeX")
-        self.dialog.geometry("700x600")
+        self.dialog.geometry("750x700")
         self.create_widgets()
         
     def create_widgets(self):
         self.create_title("🔄 Convert Text to LaTeX", "Transform plain text to professional LaTeX")
         
-        # Main content
-        content_frame = tk.Frame(self.dialog, bg=self.colors['background'])
-        content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
+        # Main content - use scrollable area
+        content_frame = tk.Frame(self.get_content_frame(), bg=self.colors['background'])
+        content_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+        content_frame.grid_columnconfigure(0, weight=1)
         
         # Text input
         text_frame = tk.Frame(content_frame, bg=self.colors['surface'], relief='raised', bd=1)
-        text_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
+        text_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 15))
+        text_frame.grid_columnconfigure(0, weight=1)
+        text_frame.grid_rowconfigure(1, weight=1)
+        content_frame.grid_rowconfigure(0, weight=1)
         
         tk.Label(
             text_frame,
@@ -1103,21 +1216,22 @@ class ConvertTextDialog(BaseDialog):
             font=('Segoe UI', 12, 'bold'),
             fg=self.colors['text'],
             bg=self.colors['surface']
-        ).pack(anchor="w", padx=15, pady=(15, 10))
+        ).grid(row=0, column=0, sticky="w", padx=15, pady=(15, 10))
         
         self.text_input = scrolledtext.ScrolledText(
             text_frame,
-            height=15,
+            height=18,
             wrap=tk.WORD,
             font=('Segoe UI', 11),
             bg=self.colors['accent'],
             fg=self.colors['text']
         )
-        self.text_input.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
+        self.text_input.grid(row=1, column=0, sticky="nsew", padx=15, pady=(0, 15))
         
         # Target section
         target_frame = tk.Frame(content_frame, bg=self.colors['surface'], relief='raised', bd=1)
-        target_frame.pack(fill=tk.X, pady=(0, 15))
+        target_frame.grid(row=1, column=0, sticky="ew", pady=(0, 15))
+        target_frame.grid_columnconfigure(0, weight=1)
         
         tk.Label(
             target_frame,
@@ -1125,7 +1239,7 @@ class ConvertTextDialog(BaseDialog):
             font=('Segoe UI', 12, 'bold'),
             fg=self.colors['text'],
             bg=self.colors['surface']
-        ).pack(anchor="w", padx=15, pady=(15, 5))
+        ).grid(row=0, column=0, sticky="w", padx=15, pady=(15, 5))
         
         self.target_entry = tk.Entry(
             target_frame,
@@ -1135,11 +1249,12 @@ class ConvertTextDialog(BaseDialog):
             relief='flat',
             bd=5
         )
-        self.target_entry.pack(fill=tk.X, padx=15, pady=(0, 15))
+        self.target_entry.grid(row=1, column=0, sticky="ew", padx=15, pady=(0, 15))
         
         # Buttons
         button_frame = tk.Frame(content_frame, bg=self.colors['background'])
-        button_frame.pack(fill=tk.X)
+        button_frame.grid(row=2, column=0, sticky="ew", pady=(10, 0))
+        button_frame.grid_columnconfigure(1, weight=1)
         
         convert_btn = tk.Button(
             button_frame,
@@ -1154,7 +1269,7 @@ class ConvertTextDialog(BaseDialog):
             pady=10,
             cursor='hand2'
         )
-        convert_btn.pack(side=tk.LEFT, padx=(0, 10))
+        convert_btn.grid(row=0, column=0, padx=(0, 10), pady=10)
         
         cancel_btn = tk.Button(
             button_frame,
@@ -1169,7 +1284,7 @@ class ConvertTextDialog(BaseDialog):
             pady=10,
             cursor='hand2'
         )
-        cancel_btn.pack(side=tk.RIGHT)
+        cancel_btn.grid(row=0, column=2, pady=10)
         
     def convert_text(self):
         text_content = self.text_input.get("1.0", tk.END).strip()
@@ -1210,19 +1325,21 @@ class AddCitationDialog(BaseDialog):
     def __init__(self, parent, main_app):
         super().__init__(parent, main_app)
         self.dialog.title("Add Citation from DOI")
-        self.dialog.geometry("500x350")
+        self.dialog.geometry("550x450")
         self.create_widgets()
         
     def create_widgets(self):
         self.create_title("📚 Add Citation from DOI", "Automatically fetch academic references")
         
-        # Main content
-        content_frame = tk.Frame(self.dialog, bg=self.colors['background'])
-        content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
+        # Main content - use scrollable area
+        content_frame = tk.Frame(self.get_content_frame(), bg=self.colors['background'])
+        content_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+        content_frame.grid_columnconfigure(0, weight=1)
         
         # DOI input
         doi_frame = tk.Frame(content_frame, bg=self.colors['surface'], relief='raised', bd=1)
-        doi_frame.pack(fill=tk.X, pady=(0, 15))
+        doi_frame.grid(row=0, column=0, sticky="ew", pady=(0, 15))
+        doi_frame.grid_columnconfigure(0, weight=1)
         
         tk.Label(
             doi_frame,
@@ -1230,7 +1347,7 @@ class AddCitationDialog(BaseDialog):
             font=('Segoe UI', 12, 'bold'),
             fg=self.colors['text'],
             bg=self.colors['surface']
-        ).pack(anchor="w", padx=15, pady=(15, 5))
+        ).grid(row=0, column=0, sticky="w", padx=15, pady=(15, 5))
         
         self.doi_entry = tk.Entry(
             doi_frame,
@@ -1240,11 +1357,13 @@ class AddCitationDialog(BaseDialog):
             relief='flat',
             bd=5
         )
-        self.doi_entry.pack(fill=tk.X, padx=15, pady=(0, 15))
+        self.doi_entry.grid(row=1, column=0, sticky="ew", padx=15, pady=(0, 15))
         
         # Examples
         examples_frame = tk.Frame(content_frame, bg=self.colors['surface'], relief='raised', bd=1)
-        examples_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
+        examples_frame.grid(row=1, column=0, sticky="nsew", pady=(0, 15))
+        examples_frame.grid_columnconfigure(0, weight=1)
+        content_frame.grid_rowconfigure(1, weight=1)
         
         tk.Label(
             examples_frame,
@@ -1252,7 +1371,7 @@ class AddCitationDialog(BaseDialog):
             font=('Segoe UI', 12, 'bold'),
             fg=self.colors['text'],
             bg=self.colors['surface']
-        ).pack(anchor="w", padx=15, pady=(15, 10))
+        ).grid(row=0, column=0, sticky="w", padx=15, pady=(15, 10))
         
         examples_text = """• 10.1038/nature12373 (Nature journal)
 • 10.1145/3372297.3417501 (ACM conference)
@@ -1267,11 +1386,12 @@ Just paste the DOI and we'll fetch the complete citation automatically!"""
             fg=self.colors['text'],
             bg=self.colors['surface'],
             justify=tk.LEFT
-        ).pack(anchor="w", padx=15, pady=(0, 15))
+        ).grid(row=1, column=0, sticky="w", padx=15, pady=(0, 15))
         
         # Buttons
         button_frame = tk.Frame(content_frame, bg=self.colors['background'])
-        button_frame.pack(fill=tk.X)
+        button_frame.grid(row=2, column=0, sticky="ew", pady=(10, 0))
+        button_frame.grid_columnconfigure(1, weight=1)
         
         fetch_btn = tk.Button(
             button_frame,
@@ -1286,7 +1406,7 @@ Just paste the DOI and we'll fetch the complete citation automatically!"""
             pady=10,
             cursor='hand2'
         )
-        fetch_btn.pack(side=tk.LEFT, padx=(0, 10))
+        fetch_btn.grid(row=0, column=0, padx=(0, 10), pady=10)
         
         cancel_btn = tk.Button(
             button_frame,
@@ -1301,7 +1421,7 @@ Just paste the DOI and we'll fetch the complete citation automatically!"""
             pady=10,
             cursor='hand2'
         )
-        cancel_btn.pack(side=tk.RIGHT)
+        cancel_btn.grid(row=0, column=2, pady=10)
         
     def fetch_citation(self):
         doi = self.doi_entry.get().strip()
@@ -1321,15 +1441,16 @@ class ManageSectionsDialog(BaseDialog):
     def __init__(self, parent, main_app):
         super().__init__(parent, main_app)
         self.dialog.title("Section Management")
-        self.dialog.geometry("600x500")
+        self.dialog.geometry("650x550")
         self.create_widgets()
         
     def create_widgets(self):
         self.create_title("📋 Section Management", "Organize your document structure")
         
-        # Main content
-        content_frame = tk.Frame(self.dialog, bg=self.colors['background'])
-        content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
+        # Main content - use scrollable area
+        content_frame = tk.Frame(self.get_content_frame(), bg=self.colors['background'])
+        content_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+        content_frame.grid_columnconfigure(0, weight=1)
         
         # Sections list
         list_frame = tk.Frame(content_frame, bg=self.colors['surface'], relief='raised', bd=1)
@@ -1452,15 +1573,16 @@ class ConfigurationDialog(BaseDialog):
     def __init__(self, parent, main_app):
         super().__init__(parent, main_app)
         self.dialog.title("Configuration")
-        self.dialog.geometry("600x450")
+        self.dialog.geometry("650x500")
         self.create_widgets()
         
     def create_widgets(self):
         self.create_title("⚙️ Configuration", "Setup your AI and system preferences")
         
-        # Main content
-        content_frame = tk.Frame(self.dialog, bg=self.colors['background'])
-        content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
+        # Main content - use scrollable area
+        content_frame = tk.Frame(self.get_content_frame(), bg=self.colors['background'])
+        content_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+        content_frame.grid_columnconfigure(0, weight=1)
         
         # API Key section
         api_frame = tk.Frame(content_frame, bg=self.colors['surface'], relief='raised', bd=1)
